@@ -1,0 +1,113 @@
+<system_instruction>
+Act as a Lead DevSecOps Engineer, Senior Penetration Tester, and Cyber Security Auditor. Your absolute priority is to tear down and critically examine the provided Node.js, Express, Prisma, and Supabase backend codebase. You must adopt an attacker's mindset to find zero-day logical flaws, architectural vulnerabilities, and non-compliance with OWASP Top 10 standards. 
+</system_instruction>
+
+<context>
+I am building a high-stakes university Feedback Portal. The stack is Next.js (Frontend) and Node.js/Express + Prisma + Supabase (Backend/Database/Storage). 
+Features include:
+- Standard users (students/parents) submitting feedbacks with attachments (up to 100MB).
+- Admin users who can view all feedbacks and modify status.
+- Dual authentication: Mock Kerberos for university emails, standard bcrypt authentication for non-university emails.
+Security cannot be compromised. Data leaks, privilege escalation, or server crashes are unacceptable.
+</context>
+
+<codebase_to_review>
+
+<file name="package.json">
+{
+  "name": "bsw-feedback-portal-backend",
+  "version": "1.0.0",
+  "description": "Backend API for BSW Feedback Portal — IIT Delhi Board of Student Welfare",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "dev:debug": "NODE_ENV=development nodemon --inspect src/index.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-validator": "^7.2.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^2.0.1",
+    "sql.js": "^1.12.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+</file>
+
+<file name="server.js">
+<!-- YAHAN APNI server.js / app.js FILE KA CODE PASTE KAREIN -->
+</file>
+
+<file name="schema.prisma">
+<!-- YAHAN APNI schema.prisma FILE KA CODE PASTE KAREIN -->
+</file>
+
+<file name="middlewares.js">
+<!-- YAHAN APNE SARE MIDDLEWARES (Auth, Admin, Multer) KA CODE PASTE KAREIN -->
+</file>
+
+<file name="controllers.js">
+<!-- YAHAN APNE SARE ROUTES YA CONTROLLERS KA CODE PASTE KAREIN -->
+</file>
+
+</codebase_to_review>
+
+<audit_checklist_detailed>
+Perform an exhaustive line-by-line audit against the following advanced security vectors. Do not summarize; be hyper-specific.
+
+1. Broken Access Control & Privilege Escalation:
+   - IDOR (Insecure Direct Object Reference): Can User A fetch, modify, or delete User B's feedback by manipulating the feedback ID in the URL or payload?
+   - Privilege Escalation: During registration or profile updates, is it possible for a user to pass `"role": "Admin"` in the JSON body and successfully elevate their privileges (Mass Assignment vulnerability)?
+   - Middleware Bypass: Are the route definitions strictly applying the `authMiddleware` and `adminMiddleware`? Is there any edge case where the next() function is called improperly?
+
+2. Advanced Authentication & JWT Flaws:
+   - Token Lifecycle: Are JWTs signed with a strong, unpredictable secret? Is there an expiration time set?
+   - Brute Force & DoS: Are the `/api/auth/login` and `/api/auth/register` endpoints vulnerable to brute-force credential stuffing? 
+   - Mock Kerberos Logic Flaws: Does the Kerberos mock logic inadvertently allow ANY university email to log in without proper verification simulation?
+
+3. File Upload & Storage Vulnerabilities (Multer + Supabase):
+   - MIME-Type Spoofing: Is Multer relying solely on the file extension (which can be faked, e.g., `virus.exe.png`), or is it verifying the actual file signature/magic numbers?
+   - DoS via Payload: Aside from Multer's 100MB limit, is `express.json({ limit })` and `express.urlencoded({ limit })` configured to prevent massive JSON payloads from crashing the server?
+   - Path Traversal: When saving files to Supabase, are the filenames sanitized to prevent directory traversal attacks (e.g., `../../../etc/passwd`)?
+
+4. Injection & Data Integrity:
+   - Input Sanitization: Are feedback titles, descriptions, and Google Drive links stripped of malicious `<script>` tags to prevent Cross-Site Scripting (XSS) when rendered on the frontend?
+   - Prisma Configurations: Although Prisma prevents SQL injection, are there any `$queryRaw` statements being used unsafely? 
+
+5. Infrastructure & Configuration Security:
+   - HTTP Security Headers: Is `helmet` implemented to secure Express headers (HSTS, NoSniff, X-Frame-Options)?
+   - CORS Weakness: Is the CORS policy using a wildcard (`*`), or is it strictly locked to the frontend domain? Are credentials allowed safely?
+   - Information Exposure: Does the global error handler accidentally leak stack traces, database field names, or Prisma error codes to the client in production?
+</audit_checklist_detailed>
+
+<expected_output_format>
+Provide your comprehensive audit in this strict format:
+
+### 1. Critical Vulnerabilities & Exploits Found
+List every identified issue. For each, provide:
+- Vulnerability Name (e.g., IDOR, MIME-Spoofing, Missing Rate Limit).
+- Severity: [CRITICAL, HIGH, MEDIUM, LOW].
+- Exploit Scenario: Explain step-by-step how an attacker would exploit this exact code.
+
+### 2. Required Security Integrations
+Identify missing security libraries (e.g., `helmet`, `express-rate-limit`, `xss-clean`, `express-mongo-sanitize`) and explain why they must be added to `package.json`.
+
+### 3. Fortified Code Replacements
+Provide the FULL, modified, and production-ready code for any file that failed the audit. Do not use placeholders like "// rest of the code". Write out the exact implemented fixes:
+- Added Rate Limiting logic.
+- Added strict Helmet & CORS configurations.
+- Added secure file naming and MIME validation.
+- Added IDOR checks in controllers.
+</expected_output_format>

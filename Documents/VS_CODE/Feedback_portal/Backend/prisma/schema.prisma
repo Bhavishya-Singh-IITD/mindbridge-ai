@@ -1,0 +1,80 @@
+// ── Prisma Schema — BSW Feedback Portal ──────────────────────────────────────
+// Run `npx prisma db push` after updating your .env with DATABASE_URL / DIRECT_URL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")   // pgbouncer pooled URL (port 6543)
+  directUrl = env("DIRECT_URL")     // direct connection URL  (port 5432)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Enums
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum FeedbackStatus {
+  Pending
+  In_Progress   // serialised as "In Progress" in application layer
+  Resolved
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Models
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id           String     @id @default(uuid())
+  name         String
+  email        String     @unique
+  passwordHash String     @map("password_hash")
+  role         String     @default("user")       // "user" | "admin"
+  userType     String     @default("non-iitd")   @map("user_type") // "iitd" | "non-iitd" | "admin"
+  subRole      String?    @map("sub_role")        // "Student" | "Parent" | "Professor" | "TA" | "Other"
+  createdAt    DateTime   @default(now())         @map("created_at")
+  feedbacks    Feedback[]
+
+  @@map("users")
+}
+
+model Feedback {
+  id                String         @id @default(uuid())
+  userId            String         @map("user_id")
+  userName          String         @map("user_name")
+  userEmail         String         @map("user_email")
+  userRole          String         @map("user_role")
+  category          String
+  subCategory       String?        @map("sub_category")
+  title             String
+  description       String
+  otherComments     String?        @map("other_comments")
+  driveLink         String?        @map("drive_link")       // optional Google Drive / external link
+  status            FeedbackStatus @default(Pending)
+  progressStartedAt DateTime?      @map("progress_started_at")
+  createdAt         DateTime       @default(now())           @map("created_at")
+
+  user        User         @relation(fields: [userId], references: [id])
+  attachments Attachment[]
+
+  @@index([userEmail])
+  @@index([category])
+  @@index([status])
+  @@map("feedbacks")
+}
+
+model Attachment {
+  id           String   @id @default(uuid())
+  feedbackId   String   @map("feedback_id")
+  originalName String   @map("original_name")
+  storagePath  String   @map("storage_path")   // path inside Supabase Storage bucket
+  publicUrl    String?  @map("public_url")      // Supabase public/signed URL
+  mimeType     String   @default("application/octet-stream") @map("mime_type")
+  sizeBytes    Int      @default(0)             @map("size_bytes")
+  createdAt    DateTime @default(now())          @map("created_at")
+
+  feedback Feedback @relation(fields: [feedbackId], references: [id], onDelete: Cascade)
+
+  @@map("attachments")
+}
